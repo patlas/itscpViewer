@@ -1,6 +1,6 @@
-#  import curses_util
+#import curses_util
 #
-#  menu = curses_util.Menu()
+#menu = curses_util.Menu()
 #
 #  items = [ str(i) for i in range(100) ]
 #  selected = menu.vend(items)
@@ -34,24 +34,102 @@ import curses
 import time
 import math
 
+
+class Window:
+    # TODO - add dimention?
+    def __init__(self, curses_window):
+
+        self.cursor_position = (0,0)
+        self.navigation_index = 0
+        self.navigation_max = 0
+        self._item_count = 0
+        self._window = curses_window
+
+        self._item_list = []
+
+
+    def _setItemPosition(self, item_index, x, y):
+        self._item_list[item_index]['YX'] = (y,x)
+    
+    def _createItem(self, text:str):
+        
+        #  if coordinates:
+        #      yx = coordinates
+        #  else:
+        #      yx = self._window.getyx()
+
+        item = {"YX": (0,0), "text": text, "attrib": curses.A_NORMAL}
+
+        self._item_list.append(item)
+        self._item_count += 1
+    
+    def _highlighItem(self, item_index:int):
+        assert self._item_count > item_index, "Item index out of range"
+        #  self._item_list[item_index]['attrib'] = curses.A_STANDOUT
+        curses.start_color()
+        curses.init_color(250, 0, 100, 0)
+        curses.init_pair(20, curses.COLOR_BLACK, 250)
+        self._window.move(0,0)
+        #  self._window.chgat(curses.color_pair(500))
+        self._window.addstr(3, 20, 'Test colors for r,g,b = {0..1000}\n',curses.color_pair(20) )
+        #  self._window.move(*item[])
+        #  chgat
+
+    def _printItem(self, item:dict, coordinates:tuple):
+        self._window.move(*coordinates)
+        self._window.addstr(item['text'], item['attrib'])
+        return self._window.getyx()
+        
+        
+    def _printItemList(self):
+        coordinates = (0,0) 
+        for item in self._item_list:
+            coordinates = self._printItem(item, coordinates) 
+
+    def printWindow(self, list_to_print:list):
+        for i in list_to_print:
+            self._createItem(i)
+
+        self._printItemList()
+
+        self._highlighItem(1)
+
+        self._window.refresh()
+
+    #  def defaul_window(self):
+    #      self.main_window.move(0,0)
+    #      self._build_list_entries()
+    #
+    #      for index in range(len(self.print_list)):
+    #          y, x = self.main_window.getyx()
+    #          self._set_entry_coordinates(index, x, y)
+    #          self._print_entry(index)
+    #          self.count+=1
+    #
+    #      self.main_window.refresh()
+
+
 class itscpViewer:
         
     PL = ["adsfad", "fdsa", "aadfasdfadfaldkfj;lkj;lkjadflkjadsfjkhlkjadhflkjhkljhlkasjdhfkljahdklfjhalkdjfhalkjdhfklajhdflkajhdflkajhdlfkjahdslfkjahdlkfjhadklfhalkdjfhladdfasdfadfaldkfj;lkj;lkjadflkjadsfjkhlkjadhflkjhkljhlkasjdhfkljahdklfjhalkdjfhalkjdhfklajhdflkajhdflkajhdlfkjahdslfkjahdlkfjhadklfhalkdjfhlad", "adf32135adf3213513513adsf"]
     
-    def __init__(self):
-        self.stdscr = curses.initscr()
+    def __init__(self, stdscr=None):
+
+        if not stdscr:
+            self.main_window = curses.initscr()
+        else:
+            self.main_window = stdscr
+
         curses.noecho()
         curses.cbreak()
-        self.stdscr.keypad(True)
+        self.main_window.keypad(True)
         curses.init_pair(1, curses.COLOR_MAGENTA, curses.COLOR_CYAN)
         self.navigation_index = 0
-        self.count = 0
-        self.entry_dict = {}
         self.print_list = []
 
     def stop_curses(self):
         curses.nocbreak()
-        self.stdscr.keypad(False)
+        self.main_window.keypad(False)
         curses.echo()
         curses.endwin()
 
@@ -71,33 +149,18 @@ class itscpViewer:
         # TODO - change to proper lines from parser
         index = 0
         for line in itscpViewer.PL:
-            self.print_list.append({"YX": (0,0), "str": "{}: {}\n".format(index, line)})
-            index+=1
+            self.print_list.append("{}: {}\n".format(index, line))
+            index += 1
 
-    def _set_entry_coordinates(self, entry_index, x, y):
-        self.print_list[entry_index]['YX'] = (y,x)
-    
-    def _print_entry(self, entry_index, coordinates=None, highlight=False):
-        
-        if coordinates:
-            self.stdscr.move(*coordinates)
-        if highlight:
-            attrib = curses.A_STANDOUT
-        else:
-            attrib = curses.A_NORMAL
-        self.stdscr.addstr(self.print_list[entry_index]['str'],attrib)
 
-    def defaul_window(self):
-        self.stdscr.move(0,0)
+    def SHOW(self):
+        w = Window(self.main_window)
         self._build_list_entries()
+        w.printWindow(self.print_list)
+        #  self.example_window()
 
-        for index in range(len(self.print_list)):
-            y, x = self.stdscr.getyx()
-            self._set_entry_coordinates(index, x, y)
-            self._print_entry(index)
-            self.count+=1
+    
 
-        self.stdscr.refresh()
 
     #  def _get_new_entry_coordinate(self, current_entry_number, next=True):
     #      if current_entry_number > self.count:
@@ -108,15 +171,11 @@ class itscpViewer:
     #
     #      return  y + math.ceil(len(self.print_list[current_entry_number]) / curses.COLS)
 
-    def _highligh_entry(self, entry_number):
-        y, x = self.print_list[entry_number]['YX']
-        self._print_entry(entry_number, (y, x), True)
-        self.stdscr.refresh()
 
                 
 
-    def default_navigate(self):
-        c = self.stdscr.getch()
+    def default_navigate(self, window:Window):
+        c = self.main_window.getch()
 
         if c == ord('j'):
             self.navigation_index += 1
@@ -135,12 +194,13 @@ class itscpViewer:
 
 def main(stdscr):
 
-    i = itscpViewer()
+    i = itscpViewer(stdscr)
     #  i.example_window()
     #  time.sleep(2)
-    i.defaul_window()
-    time.sleep(1)
-    i._highligh_entry(2)
+    i.SHOW()
+    #  while True:
+    #      i.default_navigate()
+
     time.sleep(5)
 
 
@@ -148,4 +208,48 @@ if __name__ == "__main__":
     #  i = itscpViewer()
     #  i.stop_curses()
     curses.wrapper(main)
-    
+   
+
+
+def demo(screen):
+    # save the colors and restore it later
+    save_colors = [curses.color_content(i) for i in range(curses.COLORS)]
+    curses.curs_set(0)
+    curses.start_color()
+
+    # use 250 to not interfere with tests later
+    curses.init_color(250, 1000, 0, 0)
+    curses.init_pair(250, 250, curses.COLOR_BLACK)
+    curses.init_color(251, 0, 1000, 0)
+    curses.init_pair(251, 251, curses.COLOR_BLACK)
+
+    screen.addstr(0, 20, 'Test colors for r,g,b = {0, 200}\n',
+                  curses.color_pair(250) | curses.A_BOLD | curses.A_UNDERLINE)
+    i = 0
+    for r in (0, 200):
+        for g in (0, 200):
+            for b in (0, 200):
+                i += 1
+                curses.init_color(i, r, g, b)
+                curses.init_pair(i, i, curses.COLOR_BLACK)
+                screen.addstr('{},{},{}  '.format(r, g, b), curses.color_pair(i))
+
+    screen.addstr(3, 20, 'Test colors for r,g,b = {0..1000}\n',
+                  curses.color_pair(251) | curses.A_BOLD | curses.A_UNDERLINE)
+    for r in range(0, 1001, 200):
+        for g in range(0, 1001, 200):
+            for b in range(0, 1001, 200):
+                i += 1
+                curses.init_color(i, r, g, b)
+                curses.init_pair(i, curses.COLOR_BLACK, i)
+                # screen.addstr('{},{},{} '.format(r, g, b), curses.color_pair(i))
+                screen.addstr('test ', curses.color_pair(i))
+
+    screen.getch()
+    # restore colors
+    for i in range(curses.COLORS):
+        curses.init_color(i, *save_colors[i])
+
+
+#  if __name__ == '__main__':
+#      curses.wrapper(demo)
